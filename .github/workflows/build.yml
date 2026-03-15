@@ -1,40 +1,443 @@
 #!/bin/bash
 
 # ===========================================
-# 配置 (Đã cập nhật cho Haydn 5.4 HyperOS)
+# 配置
 # ===========================================
 
-# 内核仓库
-KERNEL_REPO="https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git" # Tài hãy đổi link repo haydn của bạn tại đây
-KERNEL_BRANCH="haydn-r-oss"
+# 内核仓库 (请使用git地址喵谢谢喵)
+# Kernel Source (Use git url)
+KERNEL_REPO="https://github.com/Yun-Hydrogen/Oppo_Findx2_Sukisu_Kernel.git"
+KERNEL_BRANCH="oss-t-sukisu"
 
-# KernelSU-Next (Dùng bản Next cho kernel 5.4)
+# KernelSU(或者SukiSU/KernelSU-Next) 集成脚本
+# KernelSU(or SukiSU/KernelSU-Next) Setup bash URL
 ENABLE_KSU=true
-KSU_SETUP_URL="https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh"
-KSU_SETUP_BRANCH_ARG="next"
+KSU_SETUP_URL= "https://raw.githubusercontent.com/KernelSU-Next/KernelSU-Next/next/kernel/setup.sh"
+KSU_SETUP_BRANCH_ARG="legacy"
 
-# SUSFS 集成 (Nhánh 5.4)
+# TO DO:未实现 | Not implemented yet
+# SUSFS 集成
+# SUSFS Integration
 ENABLE_SUSFS=true
 SUSFS_REPO="https://gitlab.com/simonpunk/susfs4ksu.git"
-SUSFS_BRANCH="kernel-5.4"
+SUSFS_BRANCH="kernel-4.19"
 
-# Python 版本选择 (Kernel 5.4 bắt buộc dùng Python 3)
-USE_PYTHON3=true
+# Python 版本选择 (true=python3, false=python2)
+# Python Version Selection (true=python3, false=python2)
+USE_PYTHON3=false
 
-# 工具链 (Cập nhật Clang 17 và GCC 10 thay cho bản 4.9 cũ)
-CLANG_REPO="https://github.com/ZyCromerZ/Clang.git"
-CLANG_BRANCH="21"
-GCC64_REPO="https://github.com/AOSP-Modules/aarch64-linux-gnu-10.x.git"
-GCC64_BRANCH="master"
-GCC32_REPO="https://github.com/AOSP-Modules/arm-linux-gnueabi-10.x.git"
-GCC32_BRANCH="master"
+# 工具链
+# Toolchains
+CLANG_REPO="https://github.com/blacklytning/clang-13.0.1.git"
+CLANG_BRANCH="11"
+GCC64_REPO="https://github.com/JackA1ltman/Google-GCC-Android-4.9.git"
+GCC64_BRANCH="aarch64"
+GCC32_REPO="https://github.com/JackA1ltman/Google-GCC-Android-4.9.git"
+GCC32_BRANCH="arm32"
 
-# AnyKernel3 打包模板
+# AnyKernel3 打包模板仓库 (请使用git地址喵谢谢喵)
+# AnyKernel3 Packaging Template Repository (Use git url)
 AK3_SOURCE="https://github.com/osm0sis/AnyKernel3.git"
 AK3_BRANCH="master"
 
 # 构建配置
-DEFCONFIG="vendor/haydn_user_defconfig" # Kiểm tra file này trong arch/arm64/configs/
+# Build Configuration
+DEFCONFIG="stock_defconfig"
+ARCH="arm64"
+DEVICE="PDEM10"
+CROSS_COMPILE_AARCH64="aarch64-linux-android-"
+CROSS_COMPILE_ARM="arm-linux-androideabi-"
+
+# 构建选项
+# Build Options
+BUILD_CLEAN=false
+CONCURRENT_JOBS=$(nproc)
+
+# 输出目录
+# Output Directory
+OUTPUT_DIR="$(pwd)"
+RAW_ARTIFACTS_DIR="${OUTPUT_DIR}/raw_artifacts"
+
+# ===========================================
+# 脚本主体部分
+# ===========================================
+
+# 使用环境变量
+KERNEL_REPO="${KERNEL_REPO_OVERRIDE:-$KERNEL_REPO}"
+KERNEL_BRANCH="${KERNEL_BRANCH_OVERRIDE:-$KERNEL_BRANCH}"
+ENABLE_KSU="${ENABLE_KSU_OVERRIDE:-$ENABLE_KSU}"
+KSU_SETUP_URL="${KSU_SETUP_URL_OVERRIDE:-$KSU_SETUP_URL}"
+KSU_SETUP_BRANCH_ARG="${KSU_SETUP_BRANCH_ARG_OVERRIDE:-$KSU_SETUP_BRANCH_ARG}"
+ENABLE_SUSFS="${ENABLE_SUSFS_OVERRIDE:-$ENABLE_SUSFS}"
+SUSFS_REPO="${SUSFS_REPO_OVERRIDE:-$SUSFS_REPO}"
+SUSFS_BRANCH="${SUSFS_BRANCH_OVERRIDE:-$SUSFS_BRANCH}"
+USE_PYTHON3="${USE_PYTHON3_OVERRIDE:-$USE_PYTHON3}"
+CLANG_REPO="${CLANG_REPO_OVERRIDE:-$CLANG_REPO}"
+CLANG_BRANCH="${CLANG_BRANCH_OVERRIDE:-$CLANG_BRANCH}"
+GCC64_REPO="${GCC64_REPO_OVERRIDE:-$GCC64_REPO}"
+GCC64_BRANCH="${GCC64_BRANCH_OVERRIDE:-$GCC64_BRANCH}"
+GCC32_REPO="${GCC32_REPO_OVERRIDE:-$GCC32_REPO}"
+GCC32_BRANCH="${GCC32_BRANCH_OVERRIDE:-$GCC32_BRANCH}"
+AK3_SOURCE="${AK3_SOURCE_OVERRIDE:-$AK3_SOURCE}"
+AK3_BRANCH="${AK3_BRANCH_OVERRIDE:-$AK3_BRANCH}"
+DEFCONFIG="${DEFCONFIG_OVERRIDE:-$DEFCONFIG}"
+ARCH="${ARCH_OVERRIDE:-$ARCH}"
+DEVICE="${DEVICE_OVERRIDE:-$DEVICE}"
+CROSS_COMPILE_AARCH64="${CROSS_COMPILE_AARCH64_OVERRIDE:-$CROSS_COMPILE_AARCH64}"
+CROSS_COMPILE_ARM="${CROSS_COMPILE_ARM_OVERRIDE:-$CROSS_COMPILE_ARM}"
+BUILD_CLEAN="${BUILD_CLEAN_OVERRIDE:-$BUILD_CLEAN}"
+CONCURRENT_JOBS="${CONCURRENT_JOBS_OVERRIDE:-$CONCURRENT_JOBS}"
+OUTPUT_DIR="${OUTPUT_DIR_OVERRIDE:-$OUTPUT_DIR}"
+RAW_ARTIFACTS_DIR="${RAW_ARTIFACTS_DIR_OVERRIDE:-$RAW_ARTIFACTS_DIR}"
+
+# 定义颜色
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+PURPLE='\033[0;35m'
+CYAN='\033[0;36m'
+WHITE='\033[1;37m'
+BRIGHT_RED='\033[1;31m'
+BRIGHT_GREEN='\033[1;32m'
+BRIGHT_YELLOW='\033[1;33m'
+BRIGHT_BLUE='\033[1;34m'
+BRIGHT_PURPLE='\033[1;35m'
+BRIGHT_CYAN='\033[1;36m'
+BRIGHT_WHITE='\033[1;37m'
+ON_RED='\033[41m'
+ON_GREEN='\033[42m'
+ON_YELLOW='\033[43m'
+ON_BLUE='\033[44m'
+ON_MAGENTA='\033[45m'
+ON_CYAN='\033[46m'
+ON_WHITE='\033[47m'
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+INVERT='\033[7m'
+WHITE_ON_BLUE='\033[37;44m'
+WHITE_ON_GREEN='\033[37;42m'
+WHITE_ON_YELLOW='\033[37;43m'
+WHITE_ON_MAGENTA='\033[37;45m'
+WHITE_ON_CYAN='\033[37;46m'
+NC='\033[0m' # No Color
+
+# 显示信息
+echo "=============================================="
+echo -e "${UNDERLINE} 构建目标 / Build Target: ${NC}"
+if [ "$ENABLE_KSU" = true ] && [ "$ENABLE_SUSFS" = true ]; then
+    echo -e "${BRIGHT_CYAN}🔧 构建内核 $DEVICE (带有KSU+SUSFS) ${NC}"
+    echo -e "${BRIGHT_CYAN}   Build Kernel $DEVICE (with KSU+SUSFS) ${NC}"
+elif [ "$ENABLE_KSU" = true ] && [ "$ENABLE_SUSFS" = false ]; then
+    echo -e "${BRIGHT_CYAN}🔧 构建内核 $DEVICE (含 KernelSU) ${NC}"
+    echo -e "${BRIGHT_CYAN}   Build Kernel $DEVICE (with KernelSU) ${NC}"
+elif [ "$ENABLE_KSU" = false ] && [ "$ENABLE_SUSFS" = true ]; then
+    echo -e "${BRIGHT_CYAN}🔧 构建内核 $DEVICE (含 SUSFS)${NC}"
+    echo -e "${BRIGHT_CYAN}   Build Kernel $DEVICE (with SUSFS) ${NC}"
+else
+    echo -e "${BRIGHT_CYAN}🔧 构建内核 $DEVICE (不含 KernelSU/SUSFS) ${NC}"
+    echo -e "${BRIGHT_CYAN}   Build Kernel  $DEVICE (without KernelSU/SUSFS) ${NC}"
+fi
+echo -e "${UNDERLINE} 构建配置 / Build Configuration: ${NC}"
+echo -e "${BRIGHT_CYAN}🐍 Python 版本: $([ "$USE_PYTHON3" = true ] && echo "3" || echo "2")${NC}"
+echo -e "${BRIGHT_CYAN}🐍 Python Version: $([ "$USE_PYTHON3" = true ] && echo "3" || echo "2")${NC}"
+echo -e "${BRIGHT_CYAN}🛠️ 工具链: Clang($CLANG_BRANCH) + GCC64($GCC64_BRANCH) + GCC32($GCC32_BRANCH)${NC}"
+echo -e "${BRIGHT_CYAN}🛠️ Toolchains: Clang($CLANG_BRANCH) + GCC64($GCC64_BRANCH) + GCC32($GCC32_BRANCH)${NC}"
+echo -e "${BRIGHT_CYAN}📦 内核仓库: $KERNEL_REPO${NC}"
+echo -e "${BRIGHT_CYAN}📦 Kernel Repository: $KERNEL_REPO${NC}"
+echo -e "${BRIGHT_CYAN}🏷️ 内核分支: $KERNEL_BRANCH${NC}"
+echo -e "${BRIGHT_CYAN}🏷️ Kernel Branch: $KERNEL_BRANCH${NC}"
+echo -e "${BRIGHT_CYAN}📱 设备型号: $DEVICE${NC}"
+echo -e "${BRIGHT_CYAN}📱 Device Model: $DEVICE${NC}"
+echo -e "${BRIGHT_CYAN}📋 配置文件: $DEFCONFIG${NC}"
+echo -e "${BRIGHT_CYAN}📋 Defconfig: $DEFCONFIG${NC}"
+echo -e "${BRIGHT_CYAN}⚙️ 架构: $ARCH${NC}"
+echo -e "${BRIGHT_CYAN}⚙️ Architecture: $ARCH${NC}"
+echo -e "${BRIGHT_CYAN}⚡ 并发任务数: $CONCURRENT_JOBS${NC}"
+echo -e "${BRIGHT_CYAN}⚡ Concurrent Jobs: $CONCURRENT_JOBS${NC}"
+echo "=============================================="
+
+# 询问用户配置是否正确
+echo ""
+read -p $'📋 信息是否正确? / Please Check the information ...(y/N): ' -n 1 -r CONFIRM_CONFIG
+echo
+if [[ ! $CONFIRM_CONFIG =~ ^[Yy]$ ]]; then
+    echo -e "${WHITE_ON_RED}${BOLD}❌ 用户取消执行 / User cancelled execution ${NC}"
+    exit 1
+fi
+
+# 检查是否以root权限运行
+if [[ $EUID -eq 0 ]]; then
+   echo -e "${WHITE_ON_RED}${BOLD}⚠️ 警告: 此脚本不应以root权限运行${NC}" 
+   echo -e "${WHITE_ON_RED}${BOLD}⚠️ Warning: This script should not be run as root${NC}"
+   exit 1
+fi
+
+# 更新软件包列表
+echo -e "${BRIGHT_YELLOW}🔄 正在更新软件包列表... / Updating package lists...${NC}"
+sudo apt-get update
+
+# 安装依赖
+echo -e "${YELLOW}📦 正在安装依赖... / Installing dependencies...${NC}"
+sudo apt install -y
+sudo apt install flex -y
+sudo apt install zip -y
+sudo apt install bison -y
+sudo apt install cpio -y
+
+# 配置 python
+echo -e "${BRIGHT_YELLOW}🐍 正在配置 python... / Configuring python...${NC}"
+if [ "$USE_PYTHON3" = true ]; then
+    echo "使用 Python 3 / Using Python 3"
+    sudo ln -sf /usr/bin/python3 /usr/bin/python
+    python --version
+    # 检查Python 3是否正确安装
+    if ! command -v python3 &> /dev/null; then
+        echo -e "${WHITE_ON_RED}${BOLD}❌ 错误: Python 3 未安装或不可用${NC}"
+        echo -e "${WHITE_ON_RED}${BOLD}❌ Error: Python 3 is not installed or not available${NC}"
+        exit 1
+    fi
+else
+    echo "使用 Python 2 / Using Python 2"
+    sudo ln -sf /usr/bin/python2 /usr/bin/python
+    python --version
+    # 检查Python 2是否正确安装
+    if ! command -v python2 &> /dev/null; then
+        echo -e "${WHITE_ON_RED}${BOLD}❌ 错误: Python 2 未安装或不可用${NC}"
+        echo -e "${WHITE_ON_RED}${BOLD}❌ Error: Python 2 is not installed or not available${NC}"
+        exit 1
+    fi
+fi
+
+# 创建工作目录
+WORKDIR=$(pwd)
+echo -e "${BRIGHT_BLUE}📁 工作目录 / Working Directory: $WORKDIR${NC}"
+
+# 交互式清理选项
+echo ""
+echo -e "${BRIGHT_MAGENTA} KernelSU: $([ "$ENABLE_KSU" = true ] && echo "启用 Enabled" || echo "禁用 Disabled") | SUSFS: $([ "$ENABLE_SUSFS" = true ] && echo "启用 Enabled" || echo "禁用 Disabled") | Python: $([ "$USE_PYTHON3" = true ] && echo "3" || echo "2")${NC}"
+echo -e "${BRIGHT_MAGENTA}请选择是否清理现有组件：${NC}"
+read -p "是否清理之前的构建产物? / Do you want to clean previous build artifacts? (y/N): " -n 1 -r CLEAN_BUILD
+echo
+read -p "是否清理工具链? / Do you want to clean toolchains? (y/N): " -n 1 -r CLEAN_TOOLCHAIN
+echo
+read -p "是否清理内核源码? / Do you want to clean kernel source? (y/N): " -n 1 -r CLEAN_KERNEL
+echo
+if [ "$ENABLE_KSU" = true ]; then
+    read -p "是否清理 KernelSU? / Do you want to clean KernelSU? (y/N): " -n 1 -r CLEAN_KSU
+else
+    echo -e "${WHITE_ON_YELLOW}${BOLD}⚠️  KernelSU 已禁用，跳过清理 / Skipping KernelSU cleanup as it is disabled ${NC}"
+    CLEAN_KSU="n"
+fi
+echo
+if [ "$ENABLE_SUSFS" = true ]; then
+    read -p "是否清理 SUSFS? / Do you want to clean SUSFS? (y/N): " -n 1 -r CLEAN_SUSFS
+else
+    echo -e "${WHITE_ON_YELLOW}${BOLD}⚠️  SUSFS 已禁用，跳过清理 / Skipping SUSFS cleanup as it is disabled ${NC}"
+    CLEAN_SUSFS="n"
+fi
+echo
+
+# 执行清理操作
+if [[ $CLEAN_BUILD =~ ^[Yy]$ ]]; then
+    echo -e "${BRIGHT_RED}🧹 清理之前的构建文件... / Cleaning previous build artifacts...${NC}"
+    rm -rf kernel/out
+fi
+
+if [[ $CLEAN_TOOLCHAIN =~ ^[Yy]$ ]]; then
+    echo -e "${BRIGHT_RED}🗑️  清理工具链... / Cleaning toolchains...${NC}"
+    rm -rf clang gcc64 gcc32
+fi
+
+if [[ $CLEAN_KERNEL =~ ^[Yy]$ ]]; then
+    echo -e "${BRIGHT_RED}🗑️  清理内核源码... / Cleaning kernel source...${NC}"
+    rm -rf kernel
+fi
+
+if [[ $CLEAN_KSU =~ ^[Yy]$ ]] && [ "$ENABLE_KSU" = true ]; then
+    echo -e "${BRIGHT_RED}🗑️  清理 KernelSU... / Cleaning KernelSU...${NC}"
+    if [ -d "kernel" ]; then
+        cd kernel
+        # 尝试移除 KSU 相关文件
+        git reset --hard HEAD
+        git clean -fdx
+        cd ..
+    fi
+elif [[ $CLEAN_KSU =~ ^[Yy]$ ]] && [ "$ENABLE_KSU" = false ]; then
+    echo -e "${WHITE_ON_YELLOW}${BOLD}⚠️  KernelSU 集成已禁用，无需清理... / KernelSU integration is disabled, no cleanup needed.${NC}"
+fi
+
+if [[ $CLEAN_SUSFS =~ ^[Yy]$ ]] && [ "$ENABLE_SUSFS" = true ]; then
+    echo -e "${BRIGHT_RED}🗑️  清理 SUSFS... / Cleaning SUSFS...${NC}"
+    rm -rf susfs
+elif [[ $CLEAN_SUSFS =~ ^[Yy]$ ]] && [ "$ENABLE_SUSFS" = false ]; then
+    echo -e "${WHITE_ON_YELLOW}${BOLD}⚠️  SUSFS 集成已禁用，无需清理... / SUSFS integration is disabled, no cleanup needed.${NC}"
+fi
+
+# 克隆或恢复工具链（如果不存在）
+echo -e "${BRIGHT_GREEN}📥 正在克隆或工具链... / Cloning toolchains...${NC}"
+
+if [ ! -d "clang" ]; then
+    echo -e "${BRIGHT_GREEN}📥 克隆 clang 工具链... / Cloning clang toolchain...${NC}"
+    git clone --depth=1 --branch $CLANG_BRANCH $CLANG_REPO clang
+else
+    echo -e "${BRIGHT_GREEN}✅ clang 工具链已存在，跳过克隆 / Clang toolchain already exists, skipping clone${NC}"
+fi
+
+if [ ! -d "gcc64" ]; then
+    echo -e "${BRIGHT_GREEN}📥 克隆 gcc64 工具链... / Cloning gcc64 toolchain...${NC}"
+    git clone --depth=1 --branch $GCC64_BRANCH $GCC64_REPO gcc64
+else
+    echo -e "${BRIGHT_GREEN}✅ gcc64 工具链已存在，跳过克隆 / GCC64 toolchain already exists, skipping clone${NC}"
+fi
+
+if [ ! -d "gcc32" ]; then
+    echo -e "${BRIGHT_GREEN}📥 克隆 gcc32 工具链... / Cloning gcc32 toolchain...${NC}"
+    git clone --depth=1 --branch $GCC32_BRANCH $GCC32_REPO gcc32
+else
+    echo -e "${BRIGHT_GREEN}✅ gcc32 工具链已存在，跳过克隆 / GCC32 toolchain already exists, skipping clone${NC}"
+fi
+
+# 克隆内核源码（如果不存在）
+if [ ! -d "kernel" ]; then
+    echo -e "${BRIGHT_GREEN}📥 正在克隆内核源码... / Cloning kernel source...${NC}"
+    git clone --depth=1 --branch $KERNEL_BRANCH $KERNEL_REPO kernel
+else
+    echo -e "${BRIGHT_GREEN}✅ 内核源码已存在，跳过克隆 / Kernel source already exists, skipping clone${NC}"
+fi
+
+# 将 KernelSU 添加到内核源码树（使用 Buildin 分支）
+if [ "$ENABLE_KSU" = true ]; then
+    echo -e "${BRIGHT_GREEN}🔌 正在添加 KernelSU 到内核源码树... / Adding KernelSU to kernel source tree...${NC}"
+    cd kernel
+    set -e
+    curl -LSs "${KSU_SETUP_URL}" | bash -s $KSU_SETUP_BRANCH_ARG
+    # 列出变更以便调试
+    git status --porcelain || true
+    ls -la || true
+    cd ..
+else
+    echo -e "${WHITE_ON_YELLOW}${BOLD}⚠️  KernelSU 集成已禁用，跳过... / KernelSU integration is disabled, skipping...${NC}"
+fi
+
+# 克隆 SUSFS（仅备份，不合并到内核）
+if [ "$ENABLE_SUSFS" = true ]; then
+    if [ ! -d "susfs" ]; then
+        echo -e "${BRIGHT_GREEN}📥 正在克隆 SUSFS... / Cloning SUSFS...${NC}"
+        git clone --depth=1 --branch $SUSFS_BRANCH $SUSFS_REPO susfs || true
+        echo "SUSFS cloned to $PWD/susfs (not merged into kernel)."
+        ls -la susfs || true
+    else
+        echo -e "${BRIGHT_GREEN}✅ SUSFS 已存在，跳过克隆 / SUSFS already exists, skipping clone${NC}"
+    fi
+else
+    echo -e "${WHITE_ON_YELLOW}${BOLD}⚠️  SUSFS 集成已禁用，跳过... / SUSFS integration is disabled, skipping...${NC}"
+fi
+
+# 设置环境变量
+echo -e "${BRIGHT_BLUE}⚙️  正在设置环境变量... / Setting environment variables...${NC}"
+export PATH=$PWD/clang/bin:$PWD/gcc64/bin:$PWD/gcc32/bin:$PATH
+export CROSS_COMPILE_AARCH64=$CROSS_COMPILE_AARCH64
+export CROSS_COMPILE_ARM=$CROSS_COMPILE_ARM
+if [ "$USE_PYTHON3" = true ]; then
+    export HOSTPYTHON=/usr/bin/python3
+    export PYTHON=/usr/bin/python3
+else
+    export HOSTPYTHON=/usr/bin/python2
+    export PYTHON=/usr/bin/python2
+fi
+
+# 准备 defconfig
+echo -e "${BRIGHT_BLUE}📋 正在准备 defconfig... / Preparing defconfig...${NC}"
+cd kernel
+export ARCH=$ARCH
+if [ "$USE_PYTHON3" = true ]; then
+    make O=out ARCH=$ARCH $DEFCONFIG HOSTPYTHON=/usr/bin/python3
+else
+    make O=out ARCH=$ARCH $DEFCONFIG HOSTPYTHON=/usr/bin/python2
+fi
+
+# 询问用户是否准备好开始编译
+echo ""
+echo -e "${BRIGHT_GREEN}✅ Python 版本检查完成 / Python version check completed${NC}"
+read -p "🎉 所有准备工作已完成，是否开始编译内核?/ All preparation finished, start building kernel? (y/N): " -n 1 -r START_BUILD
+echo
+if [[ ! $START_BUILD =~ ^[Yy]$ ]]; then
+    echo -e "${WHITE_ON_RED}${BOLD}❌ 用户取消编译 / User cancelled build${NC}"
+    exit 0
+fi
+
+# 编译内核（Clang + GCC，使用交叉 ld）
+echo -e "${BRIGHT_BLUE}🔨 正在编译内核... / Building kernel...${NC}"
+set -e
+export PATH=$WORKDIR/clang/bin:$WORKDIR/gcc64/bin:$WORKDIR/gcc32/bin:$PATH
+if [ "$USE_PYTHON3" = true ]; then
+    export HOSTPYTHON=/usr/bin/python3
+    export PYTHON=/usr/bin/python3
+else
+    export HOSTPYTHON=/usr/bin/python2
+    export PYTHON=/usr/bin/python2
+fi
+export CROSS_COMPILE=$CROSS_COMPILE_AARCH64
+export CROSS_COMPILE_ARM32=$CROSS_COMPILE_ARM
+
+if [ "$USE_PYTHON3" = true ]; then
+    make -j$CONCURRENT_JOBS O=out ARCH=$ARCH CC=clang HOSTCC=gcc LD=${CROSS_COMPILE_AARCH64}ld HOSTLD=ld.bfd HOSTPYTHON=/usr/bin/python3
+else
+    make -j$CONCURRENT_JOBS O=out ARCH=$ARCH CC=clang HOSTCC=gcc LD=${CROSS_COMPILE_AARCH64}ld HOSTLD=ld.bfd HOSTPYTHON=/usr/bin/python2
+fi
+
+# 备份并保存原始产物
+echo -e "${BRIGHT_GREEN}💾 正在备份并保存原始产物... / Backing up and saving raw artifacts...${NC}"
+RAW_DIR="$RAW_ARTIFACTS_DIR"
+mkdir -p "$RAW_DIR"
+cp -v out/arch/arm64/boot/Image* "$RAW_DIR/" 2>/dev/null || true
+cp -v out/System.map "$RAW_DIR/" 2>/dev/null || true
+if [ -d out/lib/modules ]; then
+    mkdir -p "$RAW_DIR/modules"
+    cp -r out/lib/modules/* "$RAW_DIR/modules/" || true
+fi
+
+# 记录 KernelSU 相关文件（若存在）
+if [ "$ENABLE_KSU" = true ]; then
+    if [ -d ksu ] || [ -d out/ksu ] || ls out | grep -i ksu || true; then
+        echo -e "${BRIGHT_CYAN}🔍 KernelSU related files may exist in the tree; listing out/ and kernel/ for debug:${NC}"
+        ls -la out || true
+        ls -la kernel || true
+    fi
+else
+    echo -e "${WHITE_ON_YELLOW}${BOLD}⚠️  KernelSU 已禁用，跳过相关文件检查 / KernelSU is disabled, skipping related file checks${NC}"
+fi
+
+ls -la "$RAW_DIR" || true
+
+# 打包 AnyKernel3（修改 anykernel.sh）
+echo -e "${BRIGHT_GREEN}📦 正在打包 AnyKernel3... / Packaging AnyKernel3...${NC}"
+git clone --depth=1 --branch $AK3_BRANCH $AK3_SOURCE AnyKernel3
+mkdir -p AnyKernel3/kernel
+cp -r $RAW_ARTIFACTS_DIR/* AnyKernel3/kernel/ || true
+
+# 修改 anykernel.sh 属性
+sed -i 's/^kernel.string=.*/kernel.string="PDEM10 Kernel by Hydrogen"/' AnyKernel3/anykernel.sh || echo 'kernel.string="PDEM10 Kernel by Hydrogen"' >> AnyKernel3/anykernel.sh
+sed -i 's/^device.name1=.*/device.name1=PDEM10/' AnyKernel3/anykernel.sh || echo 'device.name1=PDEM10' >> AnyKernel3/anykernel.sh
+sed -i 's/^BLOCK=.*/BLOCK=auto/' AnyKernel3/anykernel.sh || echo 'BLOCK=auto' >> AnyKernel3/anykernel.sh
+sed -i 's/^IS_SLOT_DEVICE=.*/IS_SLOT_DEVICE=auto/' AnyKernel3/anykernel.sh || echo 'IS_SLOT_DEVICE=auto' >> AnyKernel3/anykernel.sh
+
+cd AnyKernel3
+OUT_ZIP="$OUTPUT_DIR/${DEVICE}-kernel.zip"
+zip -r "$OUT_ZIP" . -x ".git/*" "README.md" "*placeholder"
+ls -lah "$OUT_ZIP" || true
+
+echo "==================================="
+echo -e "${BRIGHT_GREEN}🎊 构建完成！${NC}"
+echo -e "${BRIGHT_GREEN}🎊 Build Completed! ${NC}"
+echo -e "${BRIGHT_GREEN}💾 原始产物保存在: $RAW_DIR${NC}"
+echo -e "${BRIGHT_GREEN}💾 Raw artifacts saved at: $RAW_DIR${NC}"
+echo -e "${BRIGHT_GREEN}📦 AnyKernel3 包: $OUT_ZIP${NC}"
+echo -e "${BRIGHT_GREEN}📦 AnyKernel3 package: $OUT_ZIP${NC}"
+echo "==================================="
+
+exit 0DEFCONFIG="vendor/haydn_user_defconfig" # Kiểm tra file này trong arch/arm64/configs/
 ARCH="arm64"
 DEVICE="haydn"
 CROSS_COMPILE_AARCH64="aarch64-linux-gnu-"
